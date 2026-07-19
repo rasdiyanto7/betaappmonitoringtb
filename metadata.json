@@ -1,0 +1,6 @@
+{
+  "name": "Monitoring Terapi TB",
+  "description": "Aplikasi pendamping dan monitoring terapi TB dengan OAT yang aman dan ramah pengguna untuk Pasien, Keluarga, Kader TB, dan Tenaga Medis, dilengkapi dengan enkripsi data dan Konsultasi AI.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
