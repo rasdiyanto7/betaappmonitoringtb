@@ -122,9 +122,9 @@ export default function Dashboard({
               </div>
               <div className="space-y-0.5">
                 <span className="text-[10px] uppercase font-black tracking-widest text-red-100 block">PENGINGAT MINUM OAT</span>
-                <h4 className="text-sm font-extrabold leading-snug">Hari Ini Anda Belum Menelan Obat!</h4>
+                <h4 className="text-sm font-extrabold leading-snug">Hari Ini Anda Belum Minum Obat!</h4>
                 <p className="text-[11px] text-red-100 leading-normal">
-                  Jangan tunda atau terlewat demi mencegah resistensi kuman. Setiap dosis adalah kunci kesembuhan Anda.
+                  Motifasi yang disampaikan setiap harinya.
                 </p>
               </div>
             </div>
@@ -204,7 +204,7 @@ export default function Dashboard({
               </span>
               {takenToday ? (
                 <span className="text-blue-600 font-bold text-xs block mt-1.5 leading-tight">
-                  ✓ Sudah Ditelan
+                  ✓ Sudah Diminum
                 </span>
               ) : (
                 <span className="text-rose-500 font-bold text-xs block mt-1.5 leading-tight animate-pulse flex items-center gap-1">
@@ -281,7 +281,7 @@ export default function Dashboard({
               onClick={() => onNavigateToTab("assessment")}
               className="p-3 bg-slate-50 hover:bg-blue-50/50 border border-slate-100 hover:border-blue-200 rounded-xl transition-all text-left flex items-center justify-between"
             >
-              <span>📊 Cek Adheren</span>
+              <span>📊 Self Assessment</span>
               <ArrowRight className="w-3 h-3 text-slate-400" />
             </button>
 
@@ -294,10 +294,10 @@ export default function Dashboard({
             </button>
 
             <button
-              onClick={() => onNavigateToTab("security")}
+              onClick={() => onNavigateToTab("assessment")}
               className="p-3 bg-slate-50 hover:bg-blue-50/50 border border-slate-100 hover:border-blue-200 rounded-xl transition-all text-left flex items-center justify-between"
             >
-              <span>🔒 Konsol E2EE</span>
+              <span>📊 Penjelasan Skor</span>
               <ArrowRight className="w-3 h-3 text-slate-400" />
             </button>
           </div>

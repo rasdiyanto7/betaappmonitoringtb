@@ -9,6 +9,7 @@ import { PeduliTBStore } from "./data/mockDB";
 
 // Components
 import Login from "./components/Login";
+import AdminDashboard from "./components/AdminDashboard";
 import Dashboard from "./components/Dashboard";
 import EduTB from "./components/EduTB";
 import MedicationReminder from "./components/MedicationReminder";
@@ -26,10 +27,13 @@ import ModulKeluarga from "./components/ModulKeluarga";
 // Icons
 import { Home, BookOpen, Clock, Activity, Calendar, MessageSquare, Users, Shield, User, Heart, UserPlus } from "lucide-react";
 
+const SESSION_KEY = "PEDULITB_SESSION_V2";
+
 export default function App() {
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
   const [currentPin, setCurrentPin] = useState<string>("");
   const [activeTab, setActiveTab] = useState<string>("home");
+  const [isAdminMode, setIsAdminMode] = useState<boolean>(false);
 
   // Loaded decrypted payload
   const [payload, setPayload] = useState<DatabasePayload | null>(null);
@@ -40,14 +44,72 @@ export default function App() {
   // Active profiles list state to pass to Login
   const [activeProfiles, setActiveProfiles] = useState<UserProfile[]>([]);
 
-  // Auto-init local store with seeded E2EE structure
+  // Notifikasi jadwal kontrol
+  const [scheduleNotifs, setScheduleNotifs] = useState<string[]>([]);
+  const [notifDismissed, setNotifDismissed] = useState(false);
+
+  // Auto-init local store dan restore session jika ada
   useEffect(() => {
     PeduliTBStore.initializeDefaultDatabase();
-    const db = PeduliTBStore.loadDatabase("1234");
-    if (db && db.profiles) {
-      setActiveProfiles(db.profiles);
-    }
+    const db = PeduliTBStore.loadDatabase();
+    if (db && db.profiles) setActiveProfiles(db.profiles);
+
+    // Coba restore session
+    try {
+      const raw = sessionStorage.getItem(SESSION_KEY);
+      if (raw) {
+        const sess = JSON.parse(raw);
+        if (sess.isAdminMode) {
+          setIsAdminMode(true);
+          return;
+        }
+        if (sess.userId && db) {
+          const user = db.profiles.find((p: UserProfile) => p.id === sess.userId);
+          if (user) {
+            setCurrentUser(user);
+            setCurrentPin(sess.pin || "");
+            setPayload(db);
+            setActiveTab(sess.activeTab || (user.role === UserRole.KADER || user.role === UserRole.MEDIS ? "kader" : "home"));
+          }
+        }
+      }
+    } catch {}
   }, []);
+
+  // Simpan session setiap kali user atau tab berubah
+  useEffect(() => {
+    if (currentUser) {
+      sessionStorage.setItem(SESSION_KEY, JSON.stringify({
+        userId: currentUser.id, pin: currentPin, activeTab
+      }));
+    } else if (isAdminMode) {
+      sessionStorage.setItem(SESSION_KEY, JSON.stringify({ isAdminMode: true }));
+    }
+  }, [currentUser, currentPin, activeTab, isAdminMode]);
+
+  // Cek notifikasi jadwal kontrol saat payload pertama kali dimuat
+  useEffect(() => {
+    if (!payload || !currentUser || currentUser.role !== UserRole.PASIEN) return;
+    const today = new Date();
+    const todayStr = today.toISOString().split("T")[0];
+    const in7Days = new Date(today);
+    in7Days.setDate(today.getDate() + 7);
+
+    const upcoming = payload.schedules.filter(s => {
+      if (s.selesai) return false;
+      const d = new Date(s.tanggal);
+      return d >= today && d <= in7Days;
+    });
+
+    if (upcoming.length > 0) {
+      setScheduleNotifs(upcoming.map(s => {
+        const d = new Date(s.tanggal);
+        const diffDays = Math.ceil((d.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+        const label = diffDays === 0 ? "HARI INI" : diffDays === 1 ? "BESOK" : `${diffDays} hari lagi`;
+        return `${s.tipe} — ${s.deskripsi} (${label})`;
+      }));
+    }
+  }, [payload, currentUser]);
 
   // Handle successful login
   const handleLoginSuccess = (user: UserProfile, pin: string) => {
@@ -56,16 +118,22 @@ export default function App() {
       setCurrentUser(user);
       setCurrentPin(pin);
       setPayload(db);
-      
-      // Navigate to kader workspace if role is Kader or Doctor
-      if (user.role === UserRole.KADER || user.role === UserRole.MEDIS) {
-        setActiveTab("kader");
-      } else {
-        setActiveTab("home");
-      }
+      setIsAdminMode(false);
+      setNotifDismissed(false);
+      const tab = user.role === UserRole.KADER || user.role === UserRole.MEDIS ? "kader" : "home";
+      setActiveTab(tab);
     } else {
       alert("Enkripsi Database Gagal. Harap periksa kembali PIN Anda!");
     }
+  };
+
+  // Handle admin login
+  const handleAdminLogin = () => {
+    setIsAdminMode(true);
+    setCurrentUser(null);
+    setCurrentPin("");
+    setPayload(null);
+    sessionStorage.setItem(SESSION_KEY, JSON.stringify({ isAdminMode: true }));
   };
 
   // Sync state changes back to encrypted localStorage
@@ -74,7 +142,7 @@ export default function App() {
     if (updatedPayload.profiles) {
       setActiveProfiles(updatedPayload.profiles);
     }
-    PeduliTBStore.saveDatabase(updatedPayload, currentPin);
+    PeduliTBStore.saveDatabase(updatedPayload);
   };
 
   // Callback to add a medication taken log
@@ -316,7 +384,7 @@ export default function App() {
     setPayload(updatedPayload);
     setCurrentPin(nextPin);
     setCurrentUser({ ...currentUser, ...fields });
-    PeduliTBStore.saveDatabase(updatedPayload, nextPin);
+    PeduliTBStore.saveDatabase(updatedPayload);
   };
 
   // Consultation: add a new question
@@ -364,31 +432,38 @@ export default function App() {
     setPayload(null);
     setSimulatedDayOffset(0);
     setActiveTab("home");
+    setIsAdminMode(false);
+    setScheduleNotifs([]);
+    setNotifDismissed(false);
+    sessionStorage.removeItem(SESSION_KEY);
 
-    // Force reload active profiles list from LocalStorage for next login
-    const db = PeduliTBStore.loadDatabase("1234");
-    if (db && db.profiles) {
-      setActiveProfiles(db.profiles);
-    }
+    const db = PeduliTBStore.loadDatabase();
+    if (db && db.profiles) setActiveProfiles(db.profiles);
   };
 
   const handleResetDb = () => {
-    localStorage.removeItem("PEDULITB_SECURE_STORAGE_V1");
+    localStorage.removeItem("PEDULITB_SECURE_STORAGE_V2");
+    sessionStorage.removeItem(SESSION_KEY);
     PeduliTBStore.initializeDefaultDatabase();
-    const db = PeduliTBStore.loadDatabase("1234");
-    if (db && db.profiles) {
-      setActiveProfiles(db.profiles);
-    }
+    const db = PeduliTBStore.loadDatabase();
+    if (db && db.profiles) setActiveProfiles(db.profiles);
     handleLogout();
   };
 
-  // Loading or Login gate
-  if (!currentUser || !payload) {
-    return <Login onLoginSuccess={handleLoginSuccess} activeProfiles={activeProfiles} />;
+  // Admin mode — render admin dashboard fullscreen (before user check)
+  if (isAdminMode) {
+    return <AdminDashboard onLogout={handleLogout} />;
   }
 
-  // Find patient clinical profile in decrypted profiles
-  const patientProfile = payload.profiles.find(p => p.role === UserRole.PASIEN) || payload.profiles[0];
+  // Loading or Login gate
+  if (!currentUser || !payload) {
+    return <Login onLoginSuccess={handleLoginSuccess} onAdminLogin={handleAdminLogin} activeProfiles={activeProfiles} />;
+  }
+
+  // Find current patient's own profile (for Pasien role, use currentUser directly; for Kader/Medis, use first patient or currentUser)
+  const patientProfile = currentUser.role === UserRole.PASIEN
+    ? (payload.profiles.find(p => p.id === currentUser.id) || currentUser)
+    : (payload.profiles.find(p => p.role === UserRole.PASIEN) || currentUser);
 
   // Dynamic day calculation based on treatment start
   const getNaturalTreatmentDay = (profile: UserProfile): number => {
@@ -442,6 +517,7 @@ export default function App() {
         return (
           <MonitoringKondisi
             monitoringLogs={payload.monitoring}
+            beratBadanAwal={patientProfile.beratBadanAwal}
             onAddLog={handleAddMonitoringLog}
           />
         );
@@ -501,6 +577,7 @@ export default function App() {
             patients={payload.kaderPatients}
             allProfiles={payload.profiles}
             familyLogs={payload.familyLogs || []}
+            monitoringLogs={payload.monitoring}
             onAddPatientNote={handleAddPatientNote}
             onAddEdukasi={handleAddEdukasi}
             onCreatePatient={handleCreatePatient}
@@ -575,7 +652,7 @@ export default function App() {
             
             <div className="text-[10px] text-slate-400 border-t border-slate-100 pt-4 flex justify-between">
               <span>Sandi E2EE Aktif</span>
-              <span>v1.2.0</span>
+              <span>v2.0.0</span>
             </div>
           </div>
         </div>
@@ -595,6 +672,24 @@ export default function App() {
 
             {/* Main scrollable app area */}
             <main className="flex-1 overflow-y-auto no-scrollbar pb-16 bg-slate-50">
+              {/* ── Notifikasi Jadwal Kontrol (Pasien) ── */}
+              {scheduleNotifs.length > 0 && !notifDismissed && currentUser.role === UserRole.PASIEN && (
+                <div className="bg-amber-500 text-white px-4 py-3 flex gap-2 items-start shadow-md">
+                  <Calendar className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[10px] font-black uppercase tracking-wider text-amber-100">Pengingat Jadwal Kontrol</p>
+                    {scheduleNotifs.map((n, i) => (
+                      <p key={i} className="text-xs font-semibold leading-snug mt-0.5">• {n}</p>
+                    ))}
+                  </div>
+                  <button
+                    onClick={() => setNotifDismissed(true)}
+                    className="text-amber-200 hover:text-white flex-shrink-0 mt-0.5 text-xs font-bold px-2 py-0.5 bg-amber-600/50 rounded-lg"
+                  >
+                    ✕
+                  </button>
+                </div>
+              )}
               {renderContent()}
             </main>
 
@@ -613,25 +708,29 @@ export default function App() {
                     <span className="text-[9px] font-bold">Pasien</span>
                   </button>
 
-                  <button
-                    onClick={() => setActiveTab("consultation")}
-                    className={`flex flex-col items-center gap-1 p-2 rounded-xl transition-all ${
-                      activeTab === "consultation" ? "text-blue-600 font-bold scale-105" : "text-slate-400 hover:text-slate-600"
-                    }`}
-                  >
-                    <MessageSquare className="w-5 h-5" />
-                    <span className="text-[9px] font-bold">Konsultasi</span>
-                  </button>
+                  {currentUser.role === UserRole.MEDIS && (
+                    <button
+                      onClick={() => setActiveTab("consultation")}
+                      className={`flex flex-col items-center gap-1 p-2 rounded-xl transition-all ${
+                        activeTab === "consultation" ? "text-blue-600 font-bold scale-105" : "text-slate-400 hover:text-slate-600"
+                      }`}
+                    >
+                      <MessageSquare className="w-5 h-5" />
+                      <span className="text-[9px] font-bold">Konsultasi</span>
+                    </button>
+                  )}
 
-                  <button
-                    onClick={() => setActiveTab("kelola_pasien")}
-                    className={`flex flex-col items-center gap-1 p-2 rounded-xl transition-all ${
-                      activeTab === "kelola_pasien" ? "text-blue-600 font-bold scale-105" : "text-slate-400 hover:text-slate-600"
-                    }`}
-                  >
-                    <UserPlus className="w-5 h-5" />
-                    <span className="text-[9px] font-bold">Kelola Akun</span>
-                  </button>
+                  {currentUser.role === UserRole.MEDIS && (
+                    <button
+                      onClick={() => setActiveTab("kelola_pasien")}
+                      className={`flex flex-col items-center gap-1 p-2 rounded-xl transition-all ${
+                        activeTab === "kelola_pasien" ? "text-blue-600 font-bold scale-105" : "text-slate-400 hover:text-slate-600"
+                      }`}
+                    >
+                      <UserPlus className="w-5 h-5" />
+                      <span className="text-[9px] font-bold">Kelola Akun</span>
+                    </button>
+                  )}
 
                   <button
                     onClick={() => setActiveTab("profile")}

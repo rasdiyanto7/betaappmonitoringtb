@@ -6,14 +6,22 @@
 export enum UserRole {
   PASIEN = "PASIEN",
   KADER = "KADER",
-  MEDIS = "MEDIS"
+  MEDIS = "MEDIS",
+  SUPER_ADMIN = "SUPER_ADMIN"
+}
+
+export interface AdminCredential {
+  username: string;
+  password: string;
+  role: UserRole.SUPER_ADMIN;
+  nama: string;
 }
 
 export interface UserProfile {
   id: string;
   nama: string;
   role: UserRole;
-  email: string;
+  email?: string;  // optional — bisa dikosongkan saat pembuatan akun
   username?: string;
   pin: string; // pin/password for login and decryption key
   jenisTB?: "Paru" | "Ekstraparu";
@@ -134,5 +142,6 @@ export interface DatabasePayload {
   kaderPatients: KaderPatientDampingan[];
   familyLogs?: FamilySupportLog[];
   questions?: PatientQuestion[];
+  faskesList?: string[]; // daftar nama faskes yang dikelola admin
 }
 

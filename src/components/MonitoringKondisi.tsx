@@ -9,10 +9,11 @@ import { Activity, Camera, Plus, TrendingUp, TrendingDown, CheckCircle, Shield, 
 
 interface MonitoringKondisiProps {
   monitoringLogs: MonitoringLog[];
+  beratBadanAwal?: number;
   onAddLog: (log: MonitoringLog) => void;
 }
 
-export default function MonitoringKondisi({ monitoringLogs, onAddLog }: MonitoringKondisiProps) {
+export default function MonitoringKondisi({ monitoringLogs, beratBadanAwal, onAddLog }: MonitoringKondisiProps) {
   const [batuk, setBatuk] = useState<boolean>(false);
   const [demam, setDemam] = useState<boolean>(false);
   const [beratBadan, setBeratBadan] = useState<string>("");
@@ -23,9 +24,9 @@ export default function MonitoringKondisi({ monitoringLogs, onAddLog }: Monitori
   const [photoSelected, setPhotoSelected] = useState<boolean>(false);
   const [successMessage, setSuccessMessage] = useState("");
 
-  // Get previous weight to compare
-  const prevLog = monitoringLogs[monitoringLogs.length - 1];
-  const prevWeight = prevLog ? prevLog.beratBadan : 62.0;
+  // Get previous weight — fallback ke beratBadanAwal dari profil, bukan hardcode 62
+  const prevLog = monitoringLogs.length > 0 ? monitoringLogs[monitoringLogs.length - 1] : null;
+  const prevWeight = prevLog ? prevLog.beratBadan : (beratBadanAwal || 0);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -210,10 +211,10 @@ export default function MonitoringKondisi({ monitoringLogs, onAddLog }: Monitori
               {/* Previous Weight Viewer */}
               <div className="bg-slate-100 px-3.5 py-1.5 rounded-xl border border-slate-200 flex flex-col justify-center text-center">
                 <span className="text-[9px] text-slate-400 uppercase tracking-wider block">
-                  BB Sebelumnya
+                  {prevLog ? "BB Sebelumnya" : "BB Awal"}
                 </span>
                 <span className="text-xs font-mono font-extrabold text-slate-700 block">
-                  {prevWeight} kg
+                  {prevWeight > 0 ? `${prevWeight} kg` : "—"}
                 </span>
               </div>
             </div>

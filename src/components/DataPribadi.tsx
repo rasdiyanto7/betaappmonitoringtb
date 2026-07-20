@@ -6,8 +6,8 @@
 import React, { useState } from "react";
 import { UserProfile, UserRole } from "../types";
 import { 
-  User, Clipboard, Heart, Shield, RefreshCw, FileText, 
-  CheckCircle2, Key, Edit, Lock, Mail, Tag, MapPin 
+  User, Clipboard, Shield,
+  CheckCircle2, Edit, LogOut
 } from "lucide-react";
 
 interface DataPribadiProps {
@@ -24,32 +24,13 @@ export default function DataPribadi({
   onUpdateSelfProfile 
 }: DataPribadiProps) {
   const [nama, setNama] = useState(profile.nama);
-  const [username, setUsername] = useState(profile.username || profile.email.split("@")[0]);
+  const [username, setUsername] = useState(profile.username || (profile.email ? profile.email.split("@")[0] : ""));
   const [pin, setPin] = useState(profile.pin);
   const [msgUpdate, setMsgUpdate] = useState("");
   const [showPin, setShowPin] = useState(false);
 
   // Static mock diagnostic history (only applicable if role is PASIEN)
-  const examHistory = [
-    {
-      tanggal: "2026-05-15",
-      tipe: "Tes Cepat Molekuler (TCM) Dahak",
-      hasil: "Positif (Rifampisin Sensitif)",
-      lokasi: "Laboratorium Puskesmas Sukajadi"
-    },
-    {
-      tanggal: "2026-05-18",
-      tipe: "Rontgen Dada (Thorax)",
-      hasil: "Infiltrat pada apeks paru kanan dengan kavitas kecil",
-      lokasi: "Radiologi Rumah Sakit Umum Daerah"
-    },
-    {
-      tanggal: "2026-07-01",
-      tipe: "Mikroskopis Dahak Bulan Ke-1",
-      hasil: "BTA Negatif (-) / Sputum Bersih",
-      lokasi: "Laboratorium Puskesmas Sukajadi"
-    }
-  ];
+  const examHistory: any[] = [];
 
   const handleUpdateSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -72,12 +53,24 @@ export default function DataPribadi({
   const isKader = profile.role === UserRole.KADER;
   const isMedis = profile.role === UserRole.MEDIS;
 
+  const roleLabel =
+    isPatient ? "Pasien Dampingan" :
+    isKader ? "Kader TB Aktif" :
+    isMedis ? "Tenaga Medis" :
+    "Super Administrator";
+
+  const roleGradient =
+    isPatient ? "from-teal-500 to-emerald-600" :
+    isKader ? "from-blue-500 to-indigo-600" :
+    isMedis ? "from-purple-500 to-violet-600" :
+    "from-slate-700 to-slate-900";
+
   return (
     <div className="flex flex-col bg-slate-50 min-h-screen font-sans pb-24">
       <div className="p-4 space-y-4 max-w-md mx-auto w-full">
         
         {/* Profile Card Summary */}
-        <div className="bg-gradient-to-br from-teal-500 to-emerald-600 text-white rounded-3xl p-5 shadow-md flex items-center gap-3.5">
+        <div className={`bg-gradient-to-br ${roleGradient} text-white rounded-3xl p-5 shadow-md flex items-center gap-3.5`}>
           <div className="bg-white/15 text-white rounded-2xl p-3 flex-shrink-0">
             <User className="w-8 h-8" />
           </div>
@@ -85,10 +78,10 @@ export default function DataPribadi({
             <h2 className="font-display font-extrabold text-white text-base leading-tight">
               {profile.nama}
             </h2>
-            <p className="text-[10px] text-emerald-100 font-semibold mt-1">
-              {isPatient ? "Pasien Dampingan" : isKader ? "Kader TB Aktif" : "Tenaga Medis"}
+            <p className="text-[10px] text-white/70 font-semibold mt-1">
+              {roleLabel}
             </p>
-            <p className="text-[9px] text-emerald-200 font-mono mt-0.5">
+            <p className="text-[9px] text-white/50 font-mono mt-0.5">
               ID: {profile.id} • {profile.email}
             </p>
           </div>
@@ -169,105 +162,65 @@ export default function DataPribadi({
             <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5 pb-2 border-b border-slate-100">
               <Clipboard className="w-4 h-4 text-emerald-600" /> Identitas Klinis TB
             </h3>
-
             <div className="grid grid-cols-2 gap-3.5 text-xs">
               <div className="p-2.5 bg-slate-50 rounded-xl">
-                <span className="text-[9px] text-slate-400 font-bold block uppercase">Jenis Penyakit TB</span>
-                <span className="font-bold text-slate-700 mt-0.5 block">TB {profile.jenisTB || "Paru"}</span>
+                <span className="text-[9px] text-slate-400 font-bold block uppercase">Jenis TB</span>
+                <span className="font-bold text-slate-700 mt-0.5 block">TB {profile.jenisTB || "—"}</span>
               </div>
-
               <div className="p-2.5 bg-slate-50 rounded-xl">
                 <span className="text-[9px] text-slate-400 font-bold block uppercase">Fase Pengobatan</span>
-                <span className="font-bold text-slate-700 mt-0.5 block">Fase {profile.fasePengobatan || "Intensif"}</span>
+                <span className="font-bold text-slate-700 mt-0.5 block">Fase {profile.fasePengobatan || "—"}</span>
               </div>
-
               <div className="p-2.5 bg-slate-50 rounded-xl">
                 <span className="text-[9px] text-slate-400 font-bold block uppercase">Faskes Rujukan</span>
-                <span className="font-bold text-slate-700 mt-0.5 block">{profile.faskes || "Puskesmas Sukajadi"}</span>
+                <span className="font-bold text-slate-700 mt-0.5 block">{profile.faskes || "—"}</span>
               </div>
-
               <div className="p-2.5 bg-slate-50 rounded-xl">
                 <span className="text-[9px] text-slate-400 font-bold block uppercase">Kader Pendamping</span>
-                <span className="font-bold text-slate-700 mt-0.5 block">{profile.kaderNama || "Bu Retno"}</span>
+                <span className="font-bold text-slate-700 mt-0.5 block">{profile.kaderNama || "—"}</span>
               </div>
-
+              <div className="p-2.5 bg-slate-50 rounded-xl">
+                <span className="text-[9px] text-slate-400 font-bold block uppercase">Tanggal Mulai OAT</span>
+                <span className="font-bold text-slate-700 mt-0.5 block">{profile.tanggalMulai || "—"}</span>
+              </div>
+              <div className="p-2.5 bg-slate-50 rounded-xl">
+                <span className="text-[9px] text-slate-400 font-bold block uppercase">Durasi Terapi</span>
+                <span className="font-bold text-slate-700 mt-0.5 block">{profile.durasiHari || 180} hari</span>
+              </div>
               <div className="p-2.5 bg-slate-50 rounded-xl col-span-2">
                 <span className="text-[9px] text-slate-400 font-bold block uppercase">Pendamping Minum Obat (PMO)</span>
-                <span className="font-bold text-slate-700 mt-0.5 block">{profile.pmoNama || "Siti Rahma (Istri)"}</span>
+                <span className="font-bold text-slate-700 mt-0.5 block">{profile.pmoNama || "—"}</span>
               </div>
             </div>
           </div>
         )}
 
         {/* Staff Card Profile (Only for Kader or Medis) */}
-        {!isPatient && (
+        {(isKader || isMedis) && (
           <div className="bg-white rounded-3xl p-5 border border-slate-100 shadow-xs space-y-4">
             <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5 pb-2 border-b border-slate-100">
-              <Shield className="w-4 h-4 text-emerald-600" /> Informasi Penugasan
+              <Shield className="w-4 h-4 text-blue-600" /> Informasi Penugasan
             </h3>
-
             <div className="grid grid-cols-2 gap-3.5 text-xs">
               <div className="p-2.5 bg-slate-50 rounded-xl">
                 <span className="text-[9px] text-slate-400 font-bold block uppercase">Peran Sistem</span>
                 <span className="font-bold text-slate-700 mt-0.5 block">{isKader ? "Kader Lapangan" : "Tenaga Medis"}</span>
               </div>
-
               <div className="p-2.5 bg-slate-50 rounded-xl">
                 <span className="text-[9px] text-slate-400 font-bold block uppercase">Fasilitas Induk</span>
-                <span className="font-bold text-slate-700 mt-0.5 block">{profile.faskes || "Puskesmas Sukajadi"}</span>
-              </div>
-
-              <div className="p-2.5 bg-slate-50 rounded-xl col-span-2 flex items-start gap-2">
-                <MapPin className="w-4 h-4 text-slate-400 mt-0.5 flex-shrink-0" />
-                <div>
-                  <span className="text-[9px] text-slate-400 font-bold block uppercase">Wilayah Kerja Puskesmas</span>
-                  <span className="font-bold text-slate-700 mt-0.5 block text-[11px]">Sektor Sukajadi, Bandung</span>
-                </div>
+                <span className="font-bold text-slate-700 mt-0.5 block">{profile.faskes || "—"}</span>
               </div>
             </div>
           </div>
         )}
 
-        {/* Exam history list (Only for patients) */}
-        {isPatient && (
-          <div className="bg-white rounded-3xl p-5 border border-slate-100 shadow-xs space-y-3.5">
-            <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
-              <FileText className="w-4 h-4 text-emerald-600" /> Riwayat Pemeriksaan Medis
-            </h3>
-
-            <div className="space-y-3">
-              {examHistory.map((exam, idx) => (
-                <div key={idx} className="p-3 bg-slate-50 rounded-2xl border border-slate-100 space-y-1 text-xs">
-                  <div className="flex justify-between items-center">
-                    <span className="font-bold text-slate-700">{exam.tipe}</span>
-                    <span className="text-[10px] text-slate-400">{new Date(exam.tanggal).toLocaleDateString("id-ID")}</span>
-                  </div>
-                  <p className="text-slate-600 leading-normal">
-                    Hasil: <strong className="text-emerald-700">{exam.hasil}</strong>
-                  </p>
-                  <p className="text-[9px] text-slate-400">
-                    Tempat: {exam.lokasi}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Reset and Logout controls */}
-        <div className="space-y-2 pt-2">
+        {/* Logout control */}
+        <div className="pt-2">
           <button
             onClick={onLogout}
-            className="w-full bg-rose-600 hover:bg-rose-700 text-white font-bold py-3 px-4 rounded-xl transition-all shadow-md active:scale-95 text-xs text-center"
+            className="w-full bg-rose-600 hover:bg-rose-700 text-white font-bold py-3 px-4 rounded-xl transition-all shadow-md active:scale-95 text-xs flex items-center justify-center gap-2"
           >
-            Keluar (Logout Aman)
-          </button>
-          
-          <button
-            onClick={onResetDb}
-            className="w-full bg-slate-200 hover:bg-slate-300 border border-slate-300 text-slate-600 font-semibold py-3 px-4 rounded-xl transition-all text-xs flex items-center justify-center gap-1.5 active:scale-95"
-          >
-            <RefreshCw className="w-3.5 h-3.5" /> Bersihkan & Reset Database Demo
+            <LogOut className="w-3.5 h-3.5" /> Keluar (Logout Aman)
           </button>
         </div>
       </div>
